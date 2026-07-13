@@ -544,12 +544,12 @@ async function refreshOnboardingTokenState() {
   if (!response.ok) {
     console.error('[concilium] failed to fetch onboarding token state: HTTP', response.status);
     onboardingHasToken = false;
-    onboardingGitHubTokenInput.placeholder = 'ghp_...';
+    onboardingGitHubTokenInput.placeholder = 'github_pat_...';
     return;
   }
   const data = await response.json().catch(() => ({}));
   onboardingHasToken = data.hasToken === true;
-  onboardingGitHubTokenInput.placeholder = onboardingHasToken ? 'token already saved' : 'ghp_...';
+  onboardingGitHubTokenInput.placeholder = onboardingHasToken ? 'token already saved' : 'github_pat_...';
 }
 
 async function maybeStartOnboarding() {
@@ -561,7 +561,7 @@ async function maybeStartOnboarding() {
   onboardingAddAgentForm.reset();
   onboardingGitHubTokenInput.value = '';
   onboardingHasToken = data.hasToken === true;
-  onboardingGitHubTokenInput.placeholder = onboardingHasToken ? 'token already saved' : 'ghp_...';
+  onboardingGitHubTokenInput.placeholder = onboardingHasToken ? 'token already saved' : 'github_pat_...';
   setOnboardingStep(1);
   await refreshOnboardingAgentsTable();
   onboardingDialog.showModal();
@@ -621,7 +621,7 @@ async function refreshDiscoverTable() {
 async function loadGitHubToken() {
   const response = await fetch('/api/system/github-token');
   githubTokenInput.value = '';
-  githubTokenInput.placeholder = 'ghp_...';
+  githubTokenInput.placeholder = 'github_pat_...';
   if (!response.ok) return;
   const data = await response.json().catch((err) => {
     console.error('[concilium] failed to parse github-token response:', err);
