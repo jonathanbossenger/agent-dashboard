@@ -1,3 +1,5 @@
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/jonathanbossenger/concilium)
+
 # Concilium
 
 Concilium is a locally-installed dashboard for running multiple CLI AI coding
@@ -14,8 +16,10 @@ issues to Copilot, or scaffold a brand-new repo end-to-end (create on GitHub,
 clone locally, open a session pre-pointed at it). Sessions, working
 directories, and task history persist in SQLite across restarts.
 
-Loopback only (`127.0.0.1`), no auth, no framework, no build step. Started,
-stopped, and installed as a user service Apache-style via `conciliumctl`.
+Local-first (`127.0.0.1` by default), no framework, no build step. When exposed
+publicly, Concilium auto-switches to admin-auth mode on first external access.
+Started, stopped, and installed as a user service Apache-style via
+`conciliumctl`.
 
 [Read the announcement post](https://jonathanbossenger.com/2026/05/introducing-concilium/)
 
@@ -117,7 +121,10 @@ Your council of agents — Concilium!
 - **PATH-based agent discovery** — scans `$PATH` for known CLIs and lets you
   add them with one click
 - **Vanilla web UI** — no framework, no build step, just HTML/CSS/JS
-- **Loopback only** (`127.0.0.1`) — single-user, no auth
+- **Public-server ready** — keep the default loopback-only local mode, or set
+  `host: 0.0.0.0` for server deployments. In public-server mode, Concilium
+  requires a one-time setup token from the server log to create the first admin
+  user, then requires sign-in for API access.
 
 ## Requirements
 
@@ -155,7 +162,13 @@ If you just want to get going quickly:
    ```bash
    conciliumctl start
    ```
-4. Open <http://127.0.0.1:7878>, create a session, and run your first prompt.
+4. Open <http://127.0.0.1:7878>, complete the onboarding wizard, then create a
+   session and run your first prompt.
+
+For public-server deployments, follow
+[docs/server-mode-setup.md](docs/server-mode-setup.md) instead of the local
+loopback quickstart. That flow uses the server log's setup token to create the
+first admin user, then requires sign-in before you reach the dashboard.
 
 For full install, setup, and usage details, see the documentation section below.
 
@@ -166,6 +179,7 @@ For full install, setup, and usage details, see the documentation section below.
 For installation and first-run setup, see:
 
 - [docs/install-and-first-time-setup.md](docs/install-and-first-time-setup.md)
+- [docs/server-mode-setup.md](docs/server-mode-setup.md) for remote/server deployments (including Tailscale)
 - [docs/README.md](docs/README.md) for the full user docs index
 
 ### Usage
@@ -193,7 +207,16 @@ State lives entirely under `~/.concilium/`:
 A minimal `config.yaml`:
 
 ```yaml
+host: 127.0.0.1
 port: 7878
+trustProxy: false
+forceSecureCookies: false
+publicServer: false
+setupTokenHash: ""
+adminUser: ""
+adminPasswordHash: ""
+adminPasswordSalt: ""
+authSecret: ""
 githubToken: ""
 agents:
   - id: claude
@@ -219,9 +242,23 @@ Task output events are retained for up to 30 days and capped at 20,000 rows per
 task; startup/periodic maintenance prunes older rows and removes orphaned task
 log files.
 
+### Public-server hardening notes
+
+- When `host` is non-loopback (for example `0.0.0.0`), Concilium enables
+  `publicServer` at boot.
+- First-time admin setup requires the setup token printed in the server logs.
+  Complete setup over a trusted channel (for example SSH + loopback tunnel)
+  before exposing the port broadly.
+- Reverse proxy deployments should set `trustProxy: true` so client IP /
+  forwarded proto are honored. If TLS is terminated upstream and you still want
+  `Secure` cookies without proxy headers, set `forceSecureCookies: true`.
+- To revert to local-only mode, edit `~/.concilium/config.yaml`, set
+  `publicServer: false`, clear `adminUser`/`adminPasswordHash`/`adminPasswordSalt`/
+  `authSecret`/`setupTokenHash`, set `host: 127.0.0.1`, then restart Concilium.
+
 ## API
 
-All endpoints are JSON; loopback only.
+All endpoints are JSON.
 
 | Method | Path | Description |
 |---|---|---|
@@ -242,9 +279,11 @@ All endpoints are JSON; loopback only.
 | `POST`   | `/api/tasks/:id/resize` | resize the PTY `{cols, rows}` (PTY mode only) |
 | `GET`    | `/api/stream/:id` | SSE: replays past events then streams live |
 | `POST`   | `/api/system/pick-directory` | open the OS folder picker, returns `{path}` |
-| `GET`    | `/api/system/preferred-editor` | get the local-loopback preferred editor setting and whether it is configured |
-| `POST`   | `/api/system/preferred-editor` | save/clear the local-loopback preferred editor `{command, args?}` |
-| `POST`   | `/api/system/open-editor` | open `{path}` in the configured preferred editor (local loopback UI only) |
+| `GET`    | `/api/system/directories` | list directories under the server user's home directory (`{path?, entries}`) |
+| `GET`    | `/api/system/auth/state` | public-server auth mode + setup/login state |
+| `POST`   | `/api/system/auth/setup` | create first admin user `{setupToken, username, password, confirmPassword}` (public-server mode only) |
+| `POST`   | `/api/system/auth/login` | sign in `{username, password}` (public-server mode only) |
+| `POST`   | `/api/system/auth/logout` | clear current auth session |
 | `POST`   | `/api/system/github-url` | `{path}` → `{url}` if the directory's `origin`/`upstream` remote points at GitHub |
 | `POST`   | `/api/system/github-items` | `{url}` → `{issues, pulls, warning?}` for open GitHub issues/pull requests (up to 20 of each, sorted by last update). With a token, items also carry `linkedIssues` / `linkedPulls` cross-references derived from GraphQL `closingIssuesReferences`; without a token the response includes `warning: "linked refs require a github token"` |
 | `POST`   | `/api/system/github-pulls/action` | trigger a pull request action with `{url, pullNumber, action, sha?, mergeMethod?, nodeId?}`; `action` is `"merge"`, `"close"`, or `"mark_ready"` |
@@ -292,9 +331,9 @@ concilium/
         └── picker.js                      # native OS folder picker
 ```
 
-Runtime dependencies: `express`, `better-sqlite3`, `js-yaml`, `node-pty`,
-`@xterm/xterm`, `@xterm/addon-fit` (the latter two are served straight from
-`node_modules` via static mounts at `/vendor/xterm` and
+Runtime dependencies: `express`, `express-rate-limit`, `better-sqlite3`,
+`js-yaml`, `node-pty`, `@xterm/xterm`, `@xterm/addon-fit` (the latter two are
+served straight from `node_modules` via static mounts at `/vendor/xterm` and
 `/vendor/xterm-addon-fit` — no bundler).
 
 ## License

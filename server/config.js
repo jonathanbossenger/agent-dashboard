@@ -8,7 +8,16 @@ const CONFIG_PATH = path.join(STATE_DIR, 'config.yaml');
 const LOG_DIR = path.join(STATE_DIR, 'logs');
 
 const DEFAULT_CONFIG = {
+  host: '127.0.0.1',
   port: 7878,
+  trustProxy: false,
+  forceSecureCookies: false,
+  publicServer: false,
+  setupTokenHash: '',
+  adminUser: '',
+  adminPasswordHash: '',
+  adminPasswordSalt: '',
+  authSecret: '',
   githubToken: '',
   agents: [],
   onboardingCompleted: false,
@@ -61,6 +70,7 @@ function saveConfig(newCfg) {
 }
 
 module.exports = {
+  DEFAULT_CONFIG,
   ensureState,
   getConfig,
   getConfigForUpdate,

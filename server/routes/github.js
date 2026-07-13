@@ -1,7 +1,9 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { getConfig } = require('../config');
 const { expandTilde } = require('../util/path');
 const { GITHUB_ITEMS_PER_PAGE } = require('../constants');
@@ -12,6 +14,13 @@ const GIT_CLONE_TIMEOUT_MS = 120000;
 const MAX_GITHUB_URL_LENGTH = 2048;
 const MAX_ISSUE_TITLE_LENGTH = 256;
 const MAX_ISSUE_BODY_BYTES = 65536;
+const newProjectRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: false,
+  legacyHeaders: false,
+  message: { error: 'too many project creation requests; please retry in a moment' },
+});
 // REST issue-assignee login used by GitHub for Copilot assignment.
 const COPILOT_ISSUE_ASSIGNEE = 'Copilot';
 const COPILOT_ISSUE_ASSIGNEE_FALLBACK = 'copilot-swe-agent[bot]';
@@ -22,6 +31,34 @@ function getGitHubToken(cfg) {
   if (cfg && typeof cfg.githubToken === 'string') return cfg.githubToken.trim();
   if (cfg && typeof cfg.GITHUB_TOKEN === 'string') return cfg.GITHUB_TOKEN.trim();
   return '';
+}
+
+function isWithinBaseDirectory(baseDir, targetDir) {
+  const relative = path.relative(baseDir, targetDir);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+function sanitizeRelativeDirectoryPath(input) {
+  const raw = typeof input === 'string' ? input.trim() : '';
+  if (!raw) return [];
+  const normalized = raw.replace(/\\/g, '/').replace(/^\/+/, '');
+  const parts = normalized.split('/').filter(Boolean);
+  for (const part of parts) {
+    if (part === '.' || part === '..' || part.includes('\0')) return null;
+  }
+  return parts;
+}
+
+function resolvePathWithinHome(input, homeRealPath) {
+  const raw = typeof input === 'string' ? input.trim() : '';
+  if (!raw || raw === '~') return homeRealPath;
+  let candidate = raw;
+  if (candidate.startsWith('~/')) candidate = candidate.slice(2);
+  else if (candidate === homeRealPath) candidate = '';
+  else if (candidate.startsWith(homeRealPath + path.sep)) candidate = candidate.slice(homeRealPath.length + 1);
+  const parts = sanitizeRelativeDirectoryPath(candidate);
+  if (parts === null) return null;
+  return path.join(homeRealPath, ...parts);
 }
 
 function parseGitHubUrl(remoteUrl) {
@@ -677,7 +714,7 @@ router.post('/new-project/check', async (req, res) => {
   }
 });
 
-router.post('/new-project', async (req, res) => {
+router.post('/new-project', newProjectRateLimiter, async (req, res) => {
   try {
     const parsed = sanitizeProjectName(req.body && req.body.name);
     if (parsed.error) return res.status(400).json({ error: parsed.error });
@@ -695,7 +732,10 @@ router.post('/new-project', async (req, res) => {
     const githubToken = getGitHubToken(cfg);
     if (!githubToken) return res.status(400).json({ error: 'set a GitHub token in Settings first' });
 
-    const targetPath = path.resolve(expandTilde(rawTarget.trim()));
+    const homeRealPath = await fs.promises.realpath(os.homedir());
+    const targetPath = cfg.publicServer === true
+      ? resolvePathWithinHome(rawTarget, homeRealPath)
+      : path.resolve(expandTilde(rawTarget.trim()));
     if (!targetPath) return res.status(400).json({ error: 'targetPath is required' });
 
     let stats;

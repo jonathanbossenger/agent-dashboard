@@ -1,5 +1,5 @@
-import { $, IS_MAC, formatUptime, formatBytes, isTypingContext, isPrimaryModifierPressed, RESTORE_RESUME_RETRY_DELAY_MS, LAYOUT_SAVE_DEBOUNCE_MS, SAVED_FLASH_DURATION_MS, HEALTH_POLL_INTERVAL_MS, showConfirmDialog, showErrorToast } from './utils.js';
-import { agentsById, cards, termCards, appState } from './state.js';
+import { $, IS_MAC, formatUptime, isTypingContext, isPrimaryModifierPressed, isLoopbackOrigin, RESTORE_RESUME_RETRY_DELAY_MS, LAYOUT_SAVE_DEBOUNCE_MS, SAVED_FLASH_DURATION_MS, HEALTH_POLL_INTERVAL_MS, showConfirmDialog, showErrorToast } from './utils.js';
+import { appState, agentsById, cards, termCards } from './state.js';
 import { Card } from './card.js';
 import { GitHubCard } from './github-card.js';
 import { TerminalCard } from './terminal-card.js';
@@ -9,6 +9,106 @@ import { openGitCheatsheet, getGitCheatsheetTargetCard, clearGitCheatsheetTarget
 TerminalCard.prototype._openGitCheatsheet = function () { openGitCheatsheet(this); };
 const HISTORY_TASK_FETCH_LIMIT = 1000;
 const HISTORY_EMPTY_CELL = '—';
+
+let authState = {
+  publicServer: false,
+  setupRequired: false,
+  setupTokenRequired: false,
+  authenticated: true,
+  adminUser: '',
+};
+let authPromptInFlight = false;
+const COPILOT_ISSUE_ASSIGNEE_LOGINS = new Set(['copilot', 'copilot-swe-agent[bot]']);
+const NEW_GITHUB_REPO_URL = 'https://github.com/new';
+const GITHUB_BTN_LABEL_BROWSE = 'Browse GitHub issues and pull requests';
+const GITHUB_BTN_LABEL_CREATE = 'Create GitHub repository';
+const COPILOT_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.998 15.035c-4.562 0-7.873-2.914-7.998-3.749V9.338c.085-.628.677-1.686 1.588-2.065.013-.07.024-.143.036-.218.029-.183.06-.384.126-.612-.201-.508-.254-1.084-.254-1.656 0-.87.128-1.769.693-2.484.579-.733 1.494-1.124 2.724-1.261 1.206-.134 2.262.034 2.944.765.05.053.096.108.139.165.044-.057.094-.112.143-.165.682-.731 1.738-.899 2.944-.765 1.23.137 2.145.528 2.724 1.261.566.715.693 1.614.693 2.484 0 .572-.053 1.148-.254 1.656.066.228.098.429.126.612.012.076.024.148.037.218.924.385 1.522 1.471 1.591 2.095v1.872c0 .766-3.351 3.795-8.002 3.795Zm0-1.485c2.28 0 4.584-1.11 5.002-1.433V7.862l-.023-.116c-.49.21-1.075.291-1.727.291-1.146 0-2.059-.327-2.71-.991A3.222 3.222 0 0 1 8 6.303a3.24 3.24 0 0 1-.544.743c-.65.664-1.563.991-2.71.991-.652 0-1.236-.081-1.727-.291l-.023.116v4.255c.419.323 2.722 1.433 5.002 1.433ZM6.762 2.83c-.193-.206-.637-.413-1.682-.297-1.019.113-1.479.404-1.713.7-.247.312-.369.789-.369 1.554 0 .793.129 1.171.308 1.371.162.181.519.379 1.442.379.853 0 1.339-.235 1.638-.54.315-.322.527-.827.617-1.553.117-.935-.037-1.395-.241-1.614Zm4.155-.297c-1.044-.116-1.488.091-1.681.297-.204.219-.359.679-.242 1.614.091.726.303 1.231.618 1.553.299.305.784.54 1.638.54.922 0 1.28-.198 1.442-.379.179-.2.308-.578.308-1.371 0-.765-.123-1.242-.37-1.554-.233-.296-.693-.587-1.713-.7Z"/><path d="M6.25 9.037a.75.75 0 0 1 .75.75v1.501a.75.75 0 0 1-1.5 0V9.787a.75.75 0 0 1 .75-.75Zm4.25.75v1.501a.75.75 0 0 1-1.5 0V9.787a.75.75 0 0 1 1.5 0Z"/></svg>';
+const COPILOT_ASSIGNED_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 16A8 8 0 1 1 8 0a8 8 0 0 1 0 16Zm3.78-9.72a.751.751 0 0 0-.018-1.042.751.751 0 0 0-1.042-.018L6.75 9.19 5.28 7.72a.751.751 0 0 0-1.042.018.751.751 0 0 0-.018 1.042l2 2a.75.75 0 0 0 1.06 0l4.5-4.5Z"/></svg>';
+const MERGE_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5.45 5.154A4.25 4.25 0 0 0 9.25 7.5h1.378a2.251 2.251 0 1 1 0 1.5H9.25A5.734 5.734 0 0 1 5 7.123v3.27a2.751 2.751 0 1 1-1.5 0V5.607a2.751 2.751 0 1 1 1.95-.453ZM4.25 13.5a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5Zm8.5-4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM4.25 5a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5Z"/></svg>';
+const READY_FOR_REVIEW_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"/></svg>';
+const CLOSE_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 1 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>';
+
+const nativeFetch = window.fetch.bind(window);
+function getFetchUrl(input) {
+  if (typeof input === 'string') return input;
+  if (input && typeof input.url === 'string') return input.url;
+  return '';
+}
+window.fetch = async function fetchWithAuthIntercept(input, init) {
+  const response = await nativeFetch(input, init);
+  const requestUrl = getFetchUrl(input);
+  const isApiRequest = requestUrl.startsWith('/api/');
+  const isAuthEndpoint = requestUrl.includes('/api/system/auth/');
+  if (
+    isApiRequest
+    && !isAuthEndpoint
+    && (response.status === 401 || response.status === 403)
+    && !authPromptInFlight
+  ) {
+    authPromptInFlight = true;
+    setTimeout(async () => {
+      try {
+        await ensureAuthenticated();
+      } catch (err) {
+        console.error('[concilium] failed to refresh authentication:', err);
+      } finally {
+        authPromptInFlight = false;
+      }
+    }, 0);
+  }
+  return response;
+};
+
+function currentTermTheme() {
+  const styles = getComputedStyle(document.documentElement);
+  return {
+    background: styles.getPropertyValue('--term-bg').trim() || '#111111',
+    foreground: styles.getPropertyValue('--term-fg').trim() || '#dddddd',
+    cursor: styles.getPropertyValue('--term-cursor').trim() || '#dddddd',
+    selectionBackground: styles.getPropertyValue('--term-selection').trim() || 'rgba(120,180,255,0.30)',
+  };
+}
+
+async function loadHealth() {
+  try {
+    const response = await fetch('/api/health');
+    const data = await response.json();
+    $('#health').textContent = `pid ${data.pid} · up ${formatUptime(data.uptime)}`;
+    if (data.homeDir) appState.homeDir = data.homeDir;
+  } catch (_) {
+    $('#health').textContent = 'offline';
+  }
+}
+
+async function loadAuthState() {
+  const response = await fetch('/api/system/auth/state');
+  if (!response.ok) throw new Error(`failed to load auth state: ${response.status} ${response.statusText}`);
+  authState = await response.json().catch(() => ({
+    publicServer: false,
+    setupRequired: false,
+    setupTokenRequired: false,
+    authenticated: true,
+    adminUser: '',
+  }));
+  appState.publicServer = authState.publicServer === true;
+  appState.canUsePreferredEditor = !appState.publicServer && isLoopbackOrigin();
+  refreshPreferredEditorButtons();
+  return authState;
+}
+
+function toTildePath(path) {
+  const homeDir = appState.homeDir;
+  if (homeDir && (path === homeDir || path.startsWith(homeDir + '/'))) {
+    return '~' + path.slice(homeDir.length);
+  }
+  return path;
+}
+
+function issueHasCopilotAssigned(item) {
+  if (!item || !Array.isArray(item.assignees)) return false;
+  return item.assignees.some((assignee) => typeof assignee === 'string'
+    && COPILOT_ISSUE_ASSIGNEE_LOGINS.has(assignee.toLowerCase()));
+}
 
 function cardInsertTarget(main, clientX, clientY) {
   const siblings = [...main.querySelectorAll('.card:not(.dragging)')];
@@ -113,24 +213,6 @@ function handleKeyboardShortcut(keyboardEvent) {
   if (keyCode === 'Slash') { keyboardEvent.preventDefault(); openShortcutsDialog(); }
 }
 
-async function loadHealth() {
-  try {
-    const response = await fetch('/api/health');
-    const data = await response.json();
-    const parts = [
-      `pid ${data.pid}`,
-      `up ${formatUptime(data.uptime)}`,
-    ];
-    if (Number.isFinite(data.liveTasks)) parts.push(`${data.liveTasks} live`);
-    if (Number.isFinite(data.totalEvents)) parts.push(`${data.totalEvents.toLocaleString()} events`);
-    if (Number.isFinite(data.logsDirBytes)) parts.push(`${formatBytes(data.logsDirBytes)} logs`);
-    $('#health').textContent = parts.join(' \u00b7 ');
-    if (data.homeDir) appState.homeDir = data.homeDir;
-  } catch (_) {
-    $('#health').textContent = 'offline';
-  }
-}
-
 async function loadAgents() {
   const response = await fetch('/api/agents');
   const agents = await response.json();
@@ -197,6 +279,7 @@ appState.addTerminalCard = addTerminalCard;
 appState.addGitHubCard = addGitHubCard;
 appState.saveLayout = () => saveLayout();
 appState.openNewIssueDialog = (repoUrl, cb) => openNewIssueDialog(repoUrl, cb);
+appState.browseDirectory = browseDirectory;
 
 // --- session persistence ---------------------------------------------------
 
@@ -293,6 +376,25 @@ $('#cards').addEventListener('dragover', (dragEvent) => {
 // --- settings dialog -------------------------------------------------------
 
 const settingsDialog = $('#settings-dialog');
+const authSetupDialog = $('#auth-setup-dialog');
+const authSetupForm = $('#auth-setup-form');
+const authSetupTokenInput = $('#auth-setup-token');
+const authSetupUsernameInput = $('#auth-setup-username');
+const authSetupPasswordInput = $('#auth-setup-password');
+const authSetupPasswordConfirmInput = $('#auth-setup-password-confirm');
+const authSetupStatusEl = $('#auth-setup-status');
+const authLoginDialog = $('#auth-login-dialog');
+const authLoginForm = $('#auth-login-form');
+const authLoginUsernameInput = $('#auth-login-username');
+const authLoginPasswordInput = $('#auth-login-password');
+const authLoginStatusEl = $('#auth-login-status');
+const directoryBrowserDialog = $('#directory-browser-dialog');
+const directoryBrowserCurrentPathEl = $('#directory-browser-current-path');
+const directoryBrowserHomeBtn = $('#directory-browser-home');
+const directoryBrowserUpBtn = $('#directory-browser-up');
+const directoryBrowserListEl = $('#directory-browser-list');
+const directoryBrowserStatusEl = $('#directory-browser-status');
+const directoryBrowserSelectBtn = $('#directory-browser-select');
 const onboardingDialog = $('#onboarding-dialog');
 const onboardingFirstAgentForm = $('#onboarding-first-agent-form');
 const onboardingAddAgentForm = $('#onboarding-add-agent-form');
@@ -304,6 +406,7 @@ const onboardingBackBtn = $('#onboarding-back');
 const onboardingNextBtn = $('#onboarding-next');
 const onboardingFinishBtn = $('#onboarding-finish');
 const agentForm = $('#agent-form');
+const preferredEditorSection = $('#preferred-editor-section');
 const preferredEditorHeading = $('#preferred-editor-heading');
 const preferredEditorForm = $('#preferred-editor-form');
 const preferredEditorCommandInput = $('#preferred-editor-command');
@@ -339,6 +442,11 @@ let onboardingHasToken = false;
 let newProjectCheckAbortCtrl = null;
 let newIssueRepoUrl = '';
 let newIssueCreatedHook = null;
+let directoryBrowserCurrentPath = '';
+let directoryBrowserCurrentRelativePath = '';
+let directoryBrowserHomePath = '';
+let directoryBrowserParentRelativePath = '';
+let directoryBrowserResolve = null;
 
 function setFormMode(mode, agent) {
   editingId = mode === 'edit' ? agent.id : null;
@@ -631,6 +739,7 @@ async function loadGitHubToken() {
 }
 
 async function loadPreferredEditorSettings() {
+  preferredEditorSection.hidden = !appState.canUsePreferredEditor;
   preferredEditorHeading.hidden = !appState.canUsePreferredEditor;
   preferredEditorForm.hidden = !appState.canUsePreferredEditor;
   preferredEditorCommandInput.value = '';
@@ -641,6 +750,7 @@ async function loadPreferredEditorSettings() {
   if (!response.ok) { refreshPreferredEditorButtons(); return; }
   const data = await response.json().catch(() => ({}));
   if (data.available !== true) {
+    preferredEditorSection.hidden = true;
     preferredEditorHeading.hidden = true;
     preferredEditorForm.hidden = true;
     appState.canUsePreferredEditor = false;
@@ -658,6 +768,128 @@ function setNewProjectStatus(text, cls = '') {
   newProjectStatusEl.textContent = text;
   newProjectStatusEl.classList.remove('ok', 'warn', 'err');
   if (cls) newProjectStatusEl.classList.add(cls);
+}
+
+function setAuthSetupStatus(text, cls = '') {
+  authSetupStatusEl.textContent = text;
+  authSetupStatusEl.classList.remove('ok', 'warn', 'err');
+  if (cls) authSetupStatusEl.classList.add(cls);
+}
+
+function setAuthLoginStatus(text, cls = '') {
+  authLoginStatusEl.textContent = text;
+  authLoginStatusEl.classList.remove('ok', 'warn', 'err');
+  if (cls) authLoginStatusEl.classList.add(cls);
+}
+
+function waitForDialogClose(dialog) {
+  return new Promise((resolve) => {
+    const onClose = () => {
+      dialog.removeEventListener('close', onClose);
+      resolve();
+    };
+    dialog.addEventListener('close', onClose);
+  });
+}
+
+async function ensureAuthenticated() {
+  await loadAuthState();
+  if (!authState.publicServer) return;
+
+  if (authState.setupRequired) {
+    authSetupForm.reset();
+    authSetupTokenInput.required = authState.setupTokenRequired === true;
+    setAuthSetupStatus('Enter the setup token from the server log, then create an admin username and password.');
+    authSetupDialog.showModal();
+    authSetupUsernameInput.focus();
+    await waitForDialogClose(authSetupDialog);
+    await loadAuthState();
+  }
+
+  if (!authState.authenticated) {
+    authLoginForm.reset();
+    authLoginUsernameInput.value = authState.adminUser || '';
+    setAuthLoginStatus(`Sign in${authState.adminUser ? ` as ${authState.adminUser}` : ''} to continue.`);
+    authLoginDialog.showModal();
+    authLoginPasswordInput.focus();
+    await waitForDialogClose(authLoginDialog);
+    await loadAuthState();
+  }
+}
+
+function setDirectoryBrowserStatus(text, cls = '') {
+  directoryBrowserStatusEl.textContent = text;
+  directoryBrowserStatusEl.classList.remove('ok', 'warn', 'err');
+  if (cls) directoryBrowserStatusEl.classList.add(cls);
+}
+
+function closeDirectoryBrowser(selectedPath) {
+  if (directoryBrowserDialog.open) directoryBrowserDialog.close();
+  if (directoryBrowserResolve) directoryBrowserResolve(selectedPath || null);
+  directoryBrowserResolve = null;
+}
+
+async function loadDirectoryBrowserPath(pathValue) {
+  const params = new URLSearchParams();
+  if (pathValue) params.set('path', pathValue);
+  const url = `/api/system/directories${params.toString() ? `?${params.toString()}` : ''}`;
+  const response = await fetch(url);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    directoryBrowserSelectBtn.disabled = true;
+    setDirectoryBrowserStatus(data.error || 'Failed to browse directories.', 'err');
+    return;
+  }
+  directoryBrowserCurrentPath = data.path || '';
+  directoryBrowserCurrentRelativePath = data.relativePath || '';
+  directoryBrowserHomePath = data.homeDir || directoryBrowserHomePath;
+  directoryBrowserParentRelativePath = data.parentRelativePath || '';
+  directoryBrowserCurrentPathEl.textContent = directoryBrowserCurrentPath;
+  directoryBrowserUpBtn.disabled = !data.parent;
+  directoryBrowserListEl.replaceChildren();
+  const entries = Array.isArray(data.entries) ? data.entries : [];
+  if (entries.length === 0) {
+    const empty = document.createElement('li');
+    empty.innerHTML = '<span class="muted">No child directories</span>';
+    directoryBrowserListEl.appendChild(empty);
+  } else {
+    for (const entry of entries) {
+      const li = document.createElement('li');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = entry.name;
+      button.addEventListener('click', () => {
+        void loadDirectoryBrowserPath(entry.relativePath || '');
+      });
+      li.appendChild(button);
+      directoryBrowserListEl.appendChild(li);
+    }
+  }
+  setDirectoryBrowserStatus('Select a folder or navigate deeper.');
+  directoryBrowserSelectBtn.disabled = !directoryBrowserCurrentPath;
+}
+
+function toServerBrowseRelativePath(pathValue) {
+  const raw = (pathValue || '').trim();
+  const homeDir = appState.homeDir;
+  if (!raw || raw === '~') return '';
+  if (raw.startsWith('~/')) return raw.slice(2);
+  if (homeDir && (raw === homeDir || raw.startsWith(homeDir + '/'))) {
+    return raw.slice(homeDir.length).replace(/^\/+/, '');
+  }
+  return '';
+}
+
+function browseDirectory(pathValue = '') {
+  return new Promise((resolve) => {
+    directoryBrowserResolve = resolve;
+    directoryBrowserSelectBtn.disabled = true;
+    setDirectoryBrowserStatus('Loading directories…');
+    directoryBrowserDialog.showModal();
+    void loadDirectoryBrowserPath(toServerBrowseRelativePath(pathValue)).catch((err) => {
+      setDirectoryBrowserStatus(err && err.message ? err.message : 'Failed to browse directories.', 'err');
+    });
+  });
 }
 
 function updateNewProjectCreateState() {
@@ -718,6 +950,14 @@ async function checkNewProjectName(name) {
 async function browseNewProjectTarget() {
   newProjectBrowseBtn.disabled = true;
   try {
+    if (authState.publicServer) {
+      const picked = await browseDirectory(newProjectTargetInput.value.trim());
+      if (picked) {
+        newProjectTargetInput.value = toTildePath(picked);
+        updateNewProjectCreateState();
+      }
+      return;
+    }
     const response = await fetch('/api/system/pick-directory', { method: 'POST' });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) { setNewProjectStatus(data.error || 'browse failed', 'err'); return; }
@@ -788,6 +1028,67 @@ $('#open-settings').addEventListener('click', async () => {
   $('#discover-table tbody').replaceChildren();
   await Promise.all([refreshAgentsTable(), loadPreferredEditorSettings(), loadGitHubToken()]);
   settingsDialog.showModal();
+});
+authSetupDialog.addEventListener('cancel', (cancelEvent) => cancelEvent.preventDefault());
+authLoginDialog.addEventListener('cancel', (cancelEvent) => cancelEvent.preventDefault());
+authSetupForm.addEventListener('submit', async (submitEvent) => {
+  submitEvent.preventDefault();
+  const setupToken = authSetupTokenInput.value.trim();
+  const username = authSetupUsernameInput.value.trim();
+  const password = authSetupPasswordInput.value;
+  const confirm = authSetupPasswordConfirmInput.value;
+  if (password !== confirm) {
+    setAuthSetupStatus('Passwords do not match.', 'err');
+    return;
+  }
+  const response = await fetch('/api/system/auth/setup', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ setupToken, username, password, confirmPassword: confirm }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    setAuthSetupStatus(data.error || 'Failed to save admin user.', 'err');
+    return;
+  }
+  setAuthSetupStatus('Admin user saved.', 'ok');
+  authSetupDialog.close();
+});
+authLoginForm.addEventListener('submit', async (submitEvent) => {
+  submitEvent.preventDefault();
+  const username = authLoginUsernameInput.value.trim();
+  const password = authLoginPasswordInput.value;
+  const response = await fetch('/api/system/auth/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    setAuthLoginStatus(data.error || 'Sign in failed.', 'err');
+    return;
+  }
+  setAuthLoginStatus('Signed in.', 'ok');
+  authLoginDialog.close();
+});
+directoryBrowserDialog.addEventListener('cancel', (cancelEvent) => {
+  cancelEvent.preventDefault();
+  closeDirectoryBrowser(null);
+});
+directoryBrowserDialog.addEventListener('close', () => {
+  if (directoryBrowserResolve) closeDirectoryBrowser(null);
+});
+$('#close-directory-browser').addEventListener('click', () => closeDirectoryBrowser(null));
+directoryBrowserHomeBtn.addEventListener('click', () => {
+  if (!directoryBrowserHomePath) return;
+  void loadDirectoryBrowserPath('');
+});
+directoryBrowserUpBtn.addEventListener('click', () => {
+  void loadDirectoryBrowserPath(directoryBrowserParentRelativePath || '');
+});
+directoryBrowserSelectBtn.addEventListener('click', () => {
+  if (!directoryBrowserCurrentPath) return;
+  closeDirectoryBrowser(directoryBrowserCurrentPath);
 });
 onboardingDialog.addEventListener('cancel', (cancelEvent) => cancelEvent.preventDefault());
 onboardingBackBtn.addEventListener('click', () => setOnboardingStep(onboardingStep - 1));
@@ -1014,6 +1315,7 @@ window.addEventListener('keydown', handleKeyboardShortcut, true);
 // --- bootstrap -------------------------------------------------------------
 
 (async () => {
+  await ensureAuthenticated();
   await loadHealth();
   await loadAgents();
   await loadPreferredEditorSettings();

@@ -3,7 +3,10 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const yaml = require('js-yaml');
+const readline = require('readline/promises');
 const { spawn, spawnSync } = require('child_process');
+const { DEFAULT_CONFIG } = require('../server/config');
 
 const SCRIPT = fs.realpathSync(process.argv[1]);
 const BIN_DIR = path.dirname(SCRIPT);
@@ -40,6 +43,24 @@ function readPort() {
   } catch {
     return 7878;
   }
+}
+
+function readHost() {
+  if (!fs.existsSync(CONFIG_FILE)) return '127.0.0.1';
+  try {
+    const yamlText = fs.readFileSync(CONFIG_FILE, 'utf8');
+    const match = yamlText.match(/^\s*host:\s*["']?([^"'\r\n#]+)["']?\s*$/m);
+    if (!match) return '127.0.0.1';
+    const host = String(match[1] || '').trim();
+    return host || '127.0.0.1';
+  } catch {
+    return '127.0.0.1';
+  }
+}
+
+function isLoopbackHost(host) {
+  const normalized = String(host || '').trim().toLowerCase();
+  return !normalized || normalized === '127.0.0.1' || normalized === '::1' || normalized === 'localhost';
 }
 
 const PORT = readPort();
@@ -131,6 +152,33 @@ function run(file, args, options = {}) {
   return true;
 }
 
+async function promptFirstStartHostMode() {
+  if (fs.existsSync(CONFIG_FILE)) return;
+  if (!process.stdin.isTTY || !process.stdout.isTTY) return;
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  let answer = '';
+  try {
+    answer = (await rl.question('First start: run in local loopback mode only? [Y/n] ')).trim().toLowerCase();
+  } finally {
+    rl.close();
+  }
+
+  const host = answer === 'n' || answer === 'no' ? '0.0.0.0' : '127.0.0.1';
+  const defaultConfig = {
+    ...DEFAULT_CONFIG,
+    host,
+    agents: Array.isArray(DEFAULT_CONFIG.agents) ? [...DEFAULT_CONFIG.agents] : [],
+  };
+
+  fs.writeFileSync(CONFIG_FILE, yaml.dump(defaultConfig, { sortKeys: false }));
+  console.log(`configured host: ${host}`);
+}
+
 async function startStandalone() {
   if (isStandaloneRunning()) {
     console.log(`already running (pid ${readPid()})`);
@@ -153,6 +201,7 @@ async function startStandalone() {
     if (await isResponding()) {
       console.log(`started (pid ${child.pid}, port ${PORT}, mode standalone)`);
       printUrl();
+      await maybePrintSetupTokenFromLog();
       return;
     }
     await sleep(200);
@@ -161,6 +210,7 @@ async function startStandalone() {
   if (isStandaloneRunning()) {
     console.log(`started (pid ${child.pid}, port ${PORT}, mode standalone — not yet responding; tail ${LOG_FILE})`);
     printUrl();
+    await maybePrintSetupTokenFromLog();
     return;
   }
 
@@ -202,12 +252,14 @@ async function startService() {
     if (await isResponding()) {
       console.log(`started (mode service, port ${PORT})`);
       printUrl();
+      await maybePrintSetupTokenFromLog();
       return;
     }
     await sleep(300);
   }
   console.log(`service started but not responding yet; tail ${LOG_FILE}`);
   printUrl();
+  await maybePrintSetupTokenFromLog();
 }
 
 function stopService() {
@@ -227,6 +279,40 @@ function tailText(content, lines) {
   return text && !text.endsWith('\n') ? `${text}\n` : text;
 }
 
+function parseLatestSetupToken(logContent) {
+  if (!logContent) return null;
+  // Keep this regex aligned with the setup-token log line in server/index.js.
+  const pattern = /\[concilium\]\s+Public-server setup token:\s+([^\s]+)\s+\(fingerprint\s+([0-9a-f]+)\)/g;
+  let match = null;
+  let latest = null;
+  while ((match = pattern.exec(logContent)) !== null) {
+    latest = { token: match[1], fingerprint: match[2] };
+  }
+  return latest;
+}
+
+async function maybePrintSetupTokenFromLog() {
+  if (isLoopbackHost(readHost())) return false;
+  return printSetupTokenFromLog();
+}
+
+async function printSetupTokenFromLog() {
+  for (let i = 0; i < 10; i += 1) {
+    try {
+      const logContent = fs.readFileSync(LOG_FILE, 'utf8');
+      const setupToken = parseLatestSetupToken(logContent);
+      if (setupToken) {
+        console.log(`  setup token: ${setupToken.token} (fingerprint ${setupToken.fingerprint})`);
+        return true;
+      }
+    } catch {
+      // ignore transient log-read failures during startup
+    }
+    await sleep(100);
+  }
+  return false;
+}
+
 function createMissingLogWatcher(stop) {
   let missingCount = 0;
   return {
@@ -244,6 +330,7 @@ function createMissingLogWatcher(stop) {
 }
 
 async function cmdStart() {
+  await promptFirstStartHostMode();
   if (await isResponding()) {
     console.log(`already running (port ${PORT})`);
     return;

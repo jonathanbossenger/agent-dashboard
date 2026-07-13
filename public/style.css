@@ -762,6 +762,9 @@ button:disabled { background: var(--button-disabled); cursor: not-allowed; }
 
 /* --- settings dialog --- */
 dialog#settings-dialog,
+dialog#auth-setup-dialog,
+dialog#auth-login-dialog,
+dialog#directory-browser-dialog,
 dialog#onboarding-dialog,
 dialog#new-project-dialog,
 dialog#new-issue-dialog,
@@ -778,6 +781,9 @@ dialog#confirm-dialog {
   box-shadow: var(--shadow-modal);
 }
 dialog#settings-dialog::backdrop,
+dialog#auth-setup-dialog::backdrop,
+dialog#auth-login-dialog::backdrop,
+dialog#directory-browser-dialog::backdrop,
 dialog#onboarding-dialog::backdrop,
 dialog#new-project-dialog::backdrop,
 dialog#new-issue-dialog::backdrop,
@@ -896,6 +902,36 @@ dialog section h3 {
   justify-content: space-between;
   border-top: 1px solid var(--border-soft);
   padding-top: 0.75em;
+}
+.directory-browser-actions {
+  display: flex;
+  gap: 0.5em;
+}
+.directory-browser-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 40vh;
+  overflow: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+}
+.directory-browser-list li {
+  border-bottom: 1px solid var(--border-soft);
+}
+.directory-browser-list li:last-child {
+  border-bottom: 0;
+}
+.directory-browser-list button {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+}
+.directory-browser-list button:hover {
+  background: var(--bg-hover);
 }
 #new-project-status.ok { color: var(--status-ok); }
 #new-project-status.warn { color: var(--status-warn); }

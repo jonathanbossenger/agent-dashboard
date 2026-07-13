@@ -44,3 +44,8 @@ npm link
    - Optionally add more agents.
    - Optionally add a GitHub token, with help from the
      [GitHub token guide](github-token.md).
+
+If you want to access Concilium from another machine, use the separate
+[server-mode setup guide](server-mode-setup.md) instead of this local-loopback
+flow. Public-server mode uses a setup token from the server logs to create the
+first admin user, then requires sign-in before the dashboard is available.

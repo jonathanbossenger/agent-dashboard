@@ -14,6 +14,7 @@ export const appState = {
   activeCardEl: null,
   layoutReady: false,
   homeDir: '',
+  publicServer: false,
   canUsePreferredEditor: isLoopbackOrigin(),
   preferredEditorConfigured: false,
 
@@ -23,6 +24,7 @@ export const appState = {
   addTerminalCard: () => null,
   addGitHubCard: () => null,
   openNewIssueDialog: () => {},
+  browseDirectory: async () => null,
 };
 
 export function fillAgentSelect(select, currentValue) {

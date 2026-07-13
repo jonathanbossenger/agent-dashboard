@@ -44,6 +44,23 @@ Open <http://127.0.0.1:7878> after starting. The page boots with one empty
 session card; click **+ New session** to add more, or **×** on a card to close
 it (kills any running task in that card and deletes its history).
 
+Each session card includes:
+
+- **📂** — open the OS folder picker for the working directory.
+- **▶** — start the task (or kill it while it is running).
+- **>_** — open a side terminal card in the same working directory.
+- **`</>`** — open the working directory in your configured preferred editor
+  (local loopback UI only).
+- **GitHub (octocat)** — open a GitHub browser card for the current repository,
+  or jump to `github.com/new` when the directory is not linked to GitHub yet.
+- **⧉** — duplicate the session card with the same agent and working directory,
+  then start it immediately.
+- **⤢** — expand the card to fill the main area; click again to collapse it.
+
+Drag session cards by their headers to reorder them. Concilium saves the card
+layout, working directories, and last tasks in SQLite so the layout is restored
+after a reload or restart.
+
 Header controls:
 
 - **+ New session** — adds another card.
@@ -69,9 +86,37 @@ the dashboard opens an onboarding wizard instead of the main UI. The wizard
 walks through adding a first agent, optionally adding more, and optionally
 saving a GitHub token, then drops you into the dashboard.
 
+### Public server mode
+
+When Concilium is running in public-server mode on a non-loopback host, remote
+clients do not go straight into the local onboarding flow. Instead:
+
+- if no admin user exists yet, the first screen is a setup form that requires
+  the setup token printed by `conciliumctl start` / `conciliumctl logs`
+- after the first admin is created, users must sign in before they can access
+  the same dashboard, session cards, terminals, and GitHub browser cards
+
+See [server-mode-setup.md](server-mode-setup.md) for the full remote-deployment
+setup steps.
+
 Terminal cards (opened with **>_** from a session card) include a small git
 icon in the header that opens a **Git commands reference** dialog. Clicking
 any command in the reference pastes it into the terminal.
+
+## GitHub browser cards
+
+When a session card's working directory points at a GitHub repository, click
+the octocat button in the card header to open a GitHub browser card next to it.
+The card lists open pull requests and issues for that repository.
+
+- Pull request rows show the branch name, let you copy it, and expose actions
+  to merge, close, or mark a draft ready for review.
+- Issue rows let you assign the issue to the Copilot coding agent or close it.
+- The **+** button in the GitHub card header opens a **New Issue** dialog.
+
+GitHub write actions require a saved GitHub token. Without a token, Concilium
+still shows open issues and pull requests, but linked issue/pull-request
+cross-references are unavailable.
 
 ![Concilium settings dialog screenshot](../screenshots/settings.png)
 

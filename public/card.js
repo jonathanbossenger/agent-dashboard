@@ -362,17 +362,22 @@ export class Card extends BaseCard {
   async browseCwd() {
     this.cwdBrowse.disabled = true;
     try {
-      const response = await fetch('/api/system/pick-directory', { method: 'POST' });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) { this.setStatus(data.error || 'browse failed', 'err'); return; }
-      if (data.path) {
-        this.cwd.value = toTildePath(data.path);
-        this.updatePreferredEditorButton();
-        appState.saveLayout();
-        this.checkGitHub();
-        // Programmatic .value updates do not fire input events.
-        this.scheduleKillForCwdChange();
+      let selectedPath = '';
+      if (appState.publicServer && typeof appState.browseDirectory === 'function') {
+        selectedPath = await appState.browseDirectory(this.cwd.value.trim()) || '';
+      } else {
+        const response = await fetch('/api/system/pick-directory', { method: 'POST' });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) { this.setStatus(data.error || 'browse failed', 'err'); return; }
+        selectedPath = data.path || '';
       }
+      if (!selectedPath) return;
+      this.cwd.value = toTildePath(selectedPath);
+      this.updatePreferredEditorButton();
+      appState.saveLayout();
+      this.checkGitHub();
+      // Programmatic .value updates do not fire input events.
+      this.scheduleKillForCwdChange();
     } finally {
       this.cwdBrowse.disabled = false;
     }

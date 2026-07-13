@@ -1,5 +1,8 @@
 const express = require('express');
 const { execFile } = require('child_process');
+const os = require('os');
+const { getConfig } = require('../config');
+const { hasAdminCredentials, getSessionUser } = require('../auth');
 
 const router = express.Router();
 
@@ -59,6 +62,17 @@ function pickDirectoryWindows() {
 
 router.post('/pick-directory', async (req, res) => {
   try {
+    const cfg = getConfig();
+    if (cfg && cfg.publicServer === true) {
+      if (!hasAdminCredentials(cfg)) {
+        return res.status(403).json({ error: 'admin setup required' });
+      }
+      const sessionUser = getSessionUser(req, cfg);
+      if (!sessionUser || sessionUser !== cfg.adminUser) {
+        return res.status(401).json({ error: 'authentication required' });
+      }
+      return res.json({ path: os.homedir() });
+    }
     let picked = null;
     if (process.platform === 'darwin') picked = await pickDirectoryMac();
     else if (process.platform === 'linux') picked = await pickDirectoryLinux();
