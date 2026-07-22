@@ -1,7 +1,7 @@
 import { BaseCard } from './base-card.js';
 import {
   $, isOpenCard, GITHUB_BTN_LABEL_BROWSE, GITHUB_BTN_LABEL_CREATE,
-  NEW_GITHUB_REPO_URL, RESTORE_RESUME_RETRY_DELAY_MS, showConfirmDialog,
+  NEW_GITHUB_REPO_URL, RESTORE_RESUME_RETRY_DELAY_MS,
 } from './utils.js';
 import {
   cards, termCards, agentsById, appState,
@@ -447,7 +447,7 @@ export class Card extends BaseCard {
     const taskId = this.currentTaskId;
     this._killRequestedTaskId = taskId;
     this.setStatus('killing: cwd changed…', 'warn');
-    this.kill({ confirm: false }).catch((err) => {
+    this.kill().catch((err) => {
       if (this._killRequestedTaskId !== taskId) return;
       this._killRequestedTaskId = null;
       this.setStatus('auto-kill failed', 'err');
@@ -455,17 +455,8 @@ export class Card extends BaseCard {
     });
   }
 
-  async kill({ confirm = true } = {}) {
+  async kill() {
     if (!this.currentTaskId) return;
-    if (confirm) {
-      const shouldKill = await showConfirmDialog({
-        title: 'Kill running task',
-        message: 'Kill the currently running task?',
-        confirmLabel: 'Kill',
-        danger: true,
-      });
-      if (!shouldKill) return;
-    }
     const response = await fetch(`/api/tasks/${this.currentTaskId}/kill`, { method: 'POST' });
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
