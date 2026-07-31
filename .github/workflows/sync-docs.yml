@@ -22,8 +22,8 @@ jobs:
       )
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: Automattic/docspress@14d318924a81fb95ce4d3aaa9c3b547bf76b7768
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: Automattic/docspress@8e76d6d67c91e0a94f2e8ec491f28ac1b0a47322 # v0.5.0
         with:
           mode: reconcile
           wordpress-site: psykrotek.co.za
