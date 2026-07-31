@@ -1,0 +1,28 @@
+name: Sync docs to WordPress
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: Automattic/docspress@8e76d6d67c91e0a94f2e8ec491f28ac1b0a47322 # v0.5.0
+        with:
+          # TODO: replace both values with the self-hosted site before dispatching.
+          # wordpress-url is the site origin, with no /wp-json suffix.
+          wordpress-url: https://psykrotek.co.za
+          wordpress-site: psykrotek.co.za
+          wordpress-access-token: ${{ secrets.WP_ACCESS_TOKEN }}
+          docs-dir: docs
+          root-slug: docs
+          root-title: Docs
+          create-h1: false
+          rewrite-links: true
+          status: draft
+          delete-mode: trash
+          dry-run: true
