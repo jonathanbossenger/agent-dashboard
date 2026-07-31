@@ -35,6 +35,5 @@ jobs:
           rewrite-links: true
           edit-link: false
           pull-request-branch: docspress/wordpress-sync
-          status: draft
           delete-mode: trash
           dry-run: true
