@@ -1,21 +1,31 @@
-name: Sync docs to WordPress
+name: Sync DocsPress documentation
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: docspress-sync
+  cancel-in-progress: false
 
 jobs:
   sync:
+    # Skip a push created by merging the managed WordPress proposal.
+    if: >-
+      github.event_name != 'push' ||
+      !contains(
+        github.event.head_commit.message,
+        format('from {0}/docspress/wordpress-sync', github.repository_owner)
+      )
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: Automattic/docspress@8e76d6d67c91e0a94f2e8ec491f28ac1b0a47322 # v0.5.0
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: Automattic/docspress@14d318924a81fb95ce4d3aaa9c3b547bf76b7768
         with:
-          # TODO: replace both values with the self-hosted site before dispatching.
-          # wordpress-url is the site origin, with no /wp-json suffix.
-          wordpress-url: https://psykrotek.co.za
+          mode: reconcile
           wordpress-site: psykrotek.co.za
           wordpress-access-token: ${{ secrets.WP_ACCESS_TOKEN }}
           docs-dir: docs
@@ -23,6 +33,8 @@ jobs:
           root-title: Docs
           create-h1: false
           rewrite-links: true
+          edit-link: false
+          pull-request-branch: docspress/wordpress-sync
           status: draft
           delete-mode: trash
           dry-run: true
