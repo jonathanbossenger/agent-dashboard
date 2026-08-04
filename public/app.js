@@ -1,4 +1,4 @@
-import { $, IS_MAC, formatUptime, isTypingContext, isPrimaryModifierPressed, isLoopbackOrigin, RESTORE_RESUME_RETRY_DELAY_MS, LAYOUT_SAVE_DEBOUNCE_MS, SAVED_FLASH_DURATION_MS, HEALTH_POLL_INTERVAL_MS, showConfirmDialog, showErrorToast } from './utils.js';
+import { $, IS_MAC, formatUptime, isTypingContext, isPrimaryModifierPressed, isLoopbackOrigin, RESTORE_RESUME_RETRY_DELAY_MS, LAYOUT_SAVE_DEBOUNCE_MS, SAVED_FLASH_DURATION_MS, HEALTH_POLL_INTERVAL_MS, showConfirmDialog, showErrorToast, currentTermFontSize, MIN_TERM_FONT_SIZE, MAX_TERM_FONT_SIZE } from './utils.js';
 import { appState, agentsById, cards, termCards } from './state.js';
 import { Card } from './card.js';
 import { GitHubCard } from './github-card.js';
@@ -1026,6 +1026,7 @@ $('#close-settings').addEventListener('click', () => settingsDialog.close());
 $('#open-settings').addEventListener('click', async () => {
   setFormMode('add');
   $('#discover-table tbody').replaceChildren();
+  syncTermFontSizeInput();
   await Promise.all([refreshAgentsTable(), loadPreferredEditorSettings(), loadGitHubToken()]);
   settingsDialog.showModal();
 });
@@ -1258,6 +1259,46 @@ $('#theme-toggle').addEventListener('click', () => {
   applyTheme(THEME_ORDER[(currentIndex + 1) % THEME_ORDER.length]);
 });
 updateThemeButton();
+
+// --- terminal font size ----------------------------------------------------
+
+function applyTermFontSize() {
+  for (const card of cards) card.applyTermFontSize();
+  for (const card of termCards) card.applyTermFontSize();
+}
+
+const termFontSizeInput = $('#term-font-size');
+const termFontSizeSaveBtn = $('#term-font-size-save');
+const termFontSizeResetBtn = $('#term-font-size-reset');
+
+termFontSizeInput.min = MIN_TERM_FONT_SIZE;
+termFontSizeInput.max = MAX_TERM_FONT_SIZE;
+
+function syncTermFontSizeInput() {
+  termFontSizeInput.value = currentTermFontSize();
+}
+
+$('#term-font-size-form').addEventListener('submit', (submitEvent) => {
+  submitEvent.preventDefault();
+  const val = parseInt(termFontSizeInput.value, 10);
+  if (val >= MIN_TERM_FONT_SIZE && val <= MAX_TERM_FONT_SIZE) {
+    localStorage.setItem('termFontSize', val);
+    applyTermFontSize();
+    const label = termFontSizeSaveBtn.dataset.label || termFontSizeSaveBtn.textContent;
+    if (!termFontSizeSaveBtn.dataset.label) termFontSizeSaveBtn.dataset.label = label;
+    termFontSizeSaveBtn.textContent = 'Applied';
+    setTimeout(() => { termFontSizeSaveBtn.textContent = termFontSizeSaveBtn.dataset.label; }, SAVED_FLASH_DURATION_MS);
+  } else {
+    showErrorToast(`Font size must be between ${MIN_TERM_FONT_SIZE} and ${MAX_TERM_FONT_SIZE}.`);
+    syncTermFontSizeInput();
+  }
+});
+
+termFontSizeResetBtn.addEventListener('click', () => {
+  localStorage.removeItem('termFontSize');
+  syncTermFontSizeInput();
+  applyTermFontSize();
+});
 
 $('#open-history').addEventListener('click', async () => {
   await refreshTaskHistory();

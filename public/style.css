@@ -858,7 +858,8 @@ dialog section h3 {
   font-size: 0.8em;
   color: var(--text-dim);
 }
-.agent-form label input[type="text"] { width: 100%; box-sizing: border-box; }
+.agent-form label input[type="text"],
+.agent-form label input[type="number"] { width: 100%; box-sizing: border-box; }
 .agent-form label.check {
   grid-column: 1 / -1;
   flex-direction: row;
