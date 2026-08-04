@@ -4,7 +4,7 @@
 // Subclasses that need sendRaw / fitAndResize / initTerminal must expose a
 // `currentTaskId` property (own data property or getter).
 
-import { currentTermTheme, TERM_SCROLLBACK_LINES } from './utils.js';
+import { currentTermTheme, currentTermFontSize, TERM_SCROLLBACK_LINES } from './utils.js';
 
 export class BaseCard {
   // Must be called AFTER the card element is attached to the DOM so the
@@ -13,7 +13,7 @@ export class BaseCard {
     this.term = new Terminal({
       theme: currentTermTheme(),
       fontFamily: 'ui-monospace, Menlo, Consolas, monospace',
-      fontSize: 12,
+      fontSize: currentTermFontSize(),
       cursorBlink: true,
       convertEol: true,
       scrollback: TERM_SCROLLBACK_LINES,
@@ -52,6 +52,13 @@ export class BaseCard {
 
   applyTermTheme() {
     if (this.term) this.term.options.theme = currentTermTheme();
+  }
+
+  applyTermFontSize() {
+    if (this.term) {
+      this.term.options.fontSize = currentTermFontSize();
+      requestAnimationFrame(() => this.fitAndResize());
+    }
   }
 
   setStatus(text, cls) {
