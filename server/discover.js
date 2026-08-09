@@ -7,6 +7,7 @@ const path = require('path');
 const KNOWN = [
   { id: 'claude',  name: 'Claude Code',        command: 'claude',       interactive: true },
   { id: 'codex',   name: 'Codex CLI',          command: 'codex',        interactive: true },
+  { id: 'goose',   name: 'Goose',              command: 'goose',        interactive: true },
   { id: 'aider',   name: 'Aider',              command: 'aider',        interactive: true },
   { id: 'gemini',  name: 'Gemini CLI',         command: 'gemini',       interactive: true },
   { id: 'copilot', name: 'GitHub Copilot CLI', command: 'copilot',      interactive: true },

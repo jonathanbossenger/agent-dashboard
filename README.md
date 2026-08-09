@@ -3,7 +3,7 @@
 # Concilium
 
 Concilium is a locally-installed dashboard for running multiple CLI AI coding
-agents side-by-side — Claude Code, Codex, Aider, Gemini, Copilot, Ollama, or
+agents side-by-side — Claude Code, Codex, Goose, Aider, Gemini, Copilot, Ollama, or
 anything else on your `$PATH`. Each agent runs in its own card with a real
 [xterm.js](https://xtermjs.org/) terminal, so both one-shot tools and
 interactive REPL-style agents work end-to-end: type, watch ANSI output render

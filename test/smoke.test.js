@@ -257,6 +257,8 @@ test('discover includes searchedPath context for missing commands', async (t) =>
 
   assert.equal(discoverById.get('codex').found, null);
   assert.equal(discoverById.get('codex').searchedPath, binDir);
+  assert.equal(discoverById.get('goose').found, null);
+  assert.equal(discoverById.get('goose').searchedPath, binDir);
 });
 
 test('github-items includes a warning field without a token', async (t) => {
