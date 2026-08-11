@@ -296,7 +296,7 @@ All endpoints are JSON.
 | `POST`   | `/api/system/new-project` | create repo + clone from `{name, targetPath, private?}` (defaults to public) → `{ok, cwd, repoUrl, private}` |
 | `GET`    | `/api/system/onboarding` | onboarding state `{needsOnboarding, hasAgent, hasToken}` |
 | `POST`   | `/api/system/onboarding/complete` | mark the onboarding wizard finished (requires at least one configured agent) |
-| `GET`    | `/api/system/layout` | the saved card layout; legacy clients may return an array of `{agentId, cwd, lastTaskId}`, while current clients persist `{cards, bookmarks}` where `bookmarks` is an array of `{label, agentId, cwd}` |
+| `GET`    | `/api/system/layout` | the saved card layout; the response may be a legacy array of `{agentId, cwd, lastTaskId}` if that is what an older version saved, or `{cards, bookmarks}` where `bookmarks` is an array of `{label, agentId, cwd}` when saved by the current client |
 | `POST`   | `/api/system/layout` | replace the saved card layout using either the legacy array payload or `{cards, bookmarks}` |
 
 ## Project layout
