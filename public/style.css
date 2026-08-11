@@ -280,10 +280,11 @@ main:has(.card:only-child):not(.has-expanded) {
   justify-content: center;
 }
 .card-bookmark:hover { background: var(--bg-input); color: var(--text); border-color: var(--border-soft); }
-.card-bookmark.active {
-  background: var(--bg-input);
-  color: var(--accent);
-  border-color: var(--border-soft);
+.card-bookmark.active,
+.card-bookmark.active:hover {
+  background: var(--accent);
+  color: var(--button-text);
+  border-color: transparent;
 }
 .card-expand:hover { background: var(--bg-input); color: var(--text); border-color: var(--border-soft); }
 .card-close:hover { background: var(--bg-danger-soft); color: var(--stderr); border-color: var(--border-danger); }
@@ -771,7 +772,7 @@ button:disabled { background: var(--button-disabled); cursor: not-allowed; }
 .card-clear:hover { background: var(--bg-hover); color: var(--text); }
 
 /* --- header right cluster --- */
-.header-right { flex: 0 0 auto; display: flex; align-items: center; gap: 0.6em; }
+.header-right { flex: 0 0 auto; margin-left: auto; display: flex; align-items: center; gap: 0.6em; }
 #new-card-btn {
   background: var(--new);
   font-size: 0.85em;
