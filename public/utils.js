@@ -156,9 +156,10 @@ export function showPromptDialog({
     const messageEl = $('#prompt-dialog-message');
     const labelEl = $('#prompt-dialog-label');
     const inputEl = $('#prompt-dialog-input');
+    const closeBtn = $('#prompt-dialog-close');
     const confirmBtn = $('#prompt-dialog-confirm');
     const cancelBtn = $('#prompt-dialog-cancel');
-    if (!dialog || !titleEl || !messageEl || !labelEl || !inputEl || !confirmBtn || !cancelBtn || typeof dialog.showModal !== 'function') {
+    if (!dialog || !titleEl || !messageEl || !labelEl || !inputEl || !closeBtn || !confirmBtn || !cancelBtn || typeof dialog.showModal !== 'function') {
       resolve(window.prompt(String(title || message || label || 'Enter a value'), defaultValue));
       return;
     }
@@ -176,13 +177,21 @@ export function showPromptDialog({
       confirmBtn.disabled = !inputEl.value.trim();
     };
 
+    const onCancel = () => {
+      dialog.close('cancel');
+    };
+
     const onClose = () => {
       dialog.removeEventListener('close', onClose);
       inputEl.removeEventListener('input', syncState);
+      closeBtn.removeEventListener('click', onCancel);
+      cancelBtn.removeEventListener('click', onCancel);
       resolve(dialog.returnValue === 'confirm' ? inputEl.value : null);
     };
 
     inputEl.addEventListener('input', syncState);
+    closeBtn.addEventListener('click', onCancel);
+    cancelBtn.addEventListener('click', onCancel);
     dialog.addEventListener('close', onClose);
     syncState();
 
@@ -195,6 +204,8 @@ export function showPromptDialog({
     } catch (_) {
       dialog.removeEventListener('close', onClose);
       inputEl.removeEventListener('input', syncState);
+      closeBtn.removeEventListener('click', onCancel);
+      cancelBtn.removeEventListener('click', onCancel);
       resolve(window.prompt(String(title || message || label || 'Enter a value'), defaultValue));
     }
   });
