@@ -202,6 +202,9 @@ export function showPromptDialog({
         inputEl.select();
       });
     } catch (_) {
+      try {
+        if (dialog.open) dialog.close('cancel');
+      } catch (_) {}
       dialog.removeEventListener('close', onClose);
       inputEl.removeEventListener('input', syncState);
       closeBtn.removeEventListener('click', onCancel);
