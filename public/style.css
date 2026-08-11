@@ -282,8 +282,8 @@ main:has(.card:only-child):not(.has-expanded) {
 .card-bookmark:hover { background: var(--bg-input); color: var(--text); border-color: var(--border-soft); }
 .card-bookmark.active,
 .card-bookmark.active:hover {
-  background: var(--accent);
-  color: var(--button-text);
+  background: transparent;
+  color: var(--accent);
   border-color: transparent;
 }
 .card-expand:hover { background: var(--bg-input); color: var(--text); border-color: var(--border-soft); }
