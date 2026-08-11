@@ -17,6 +17,7 @@ export class Card extends BaseCard {
     this.agentSelect = $('.card-agent', this.el);
     this.cwd = $('.card-cwd', this.el);
     this.cwdBrowse = $('.card-cwd-browse', this.el);
+    this.bookmarkBtn = $('.card-bookmark', this.el);
     this.githubBtn = $('.card-github', this.el);
     this.runBtn = $('.card-run', this.el);
     this.openTermBtn = $('.card-open-term', this.el);
@@ -62,15 +63,20 @@ export class Card extends BaseCard {
       });
     });
     this.cwdBrowse.addEventListener('click', () => this.browseCwd());
+    this.bookmarkBtn.addEventListener('click', () => this.toggleBookmark());
     this.closeBtn.addEventListener('click', () => this.close());
     this.expandBtn.addEventListener('click', () => this.toggleExpand());
     this.openTermBtn.addEventListener('click', () => this.openTerminalCard());
     this.openEditorBtn.addEventListener('click', () => this.openEditor());
     this.cloneBtn.addEventListener('click', () => appState.addCard({ afterEl: this.el, agentId: this.agentSelect.value, cwd: this.cwd.value, autoRun: true }));
     this.githubBtn.addEventListener('click', () => this.openGitHubCard());
-    this.agentSelect.addEventListener('change', () => appState.saveLayout());
+    this.agentSelect.addEventListener('change', () => {
+      appState.saveLayout();
+      this.refreshBookmarkButton();
+    });
     this.cwd.addEventListener('input', () => {
       appState.saveLayout();
+      this.refreshBookmarkButton();
       this.updatePreferredEditorButton();
       this.scheduleCheckGitHub();
       this.scheduleKillForCwdChange();
@@ -85,6 +91,7 @@ export class Card extends BaseCard {
 
     cards.add(this);
     this.syncLinkedCardButtons();
+    this.refreshBookmarkButton();
     this.updatePreferredEditorButton();
   }
 
@@ -96,6 +103,42 @@ export class Card extends BaseCard {
 
   refreshAgentSelect() {
     fillAgentSelect(this.agentSelect, this.agentSelect.value);
+    this.refreshBookmarkButton();
+  }
+
+  defaultBookmarkLabel() {
+    const agentLabel = this.agentSelect.selectedOptions[0]?.textContent
+      ?.replace(/\s+· interactive$/, '')
+      .trim() || '';
+    const directoryPath = this.cwd.value.trim();
+    if (agentLabel && directoryPath) return `${agentLabel} · ${directoryPath}`;
+    return directoryPath || agentLabel || 'Bookmark';
+  }
+
+  refreshBookmarkButton() {
+    const agentId = this.agentSelect.value;
+    const cwd = this.cwd.value.trim();
+    const active = !!agentId && appState.isBookmarked({ agentId, cwd });
+    this.bookmarkBtn.disabled = !agentId;
+    this.bookmarkBtn.classList.toggle('active', active);
+    this.bookmarkBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    const title = !agentId ? 'Select an agent to bookmark' : active ? 'Remove bookmark' : 'Add bookmark';
+    this.bookmarkBtn.title = title;
+    this.bookmarkBtn.setAttribute('aria-label', title);
+  }
+
+  toggleBookmark() {
+    const agentId = this.agentSelect.value;
+    if (!agentId) {
+      this.setStatus('select an agent', 'err');
+      return;
+    }
+    appState.toggleBookmark({
+      agentId,
+      cwd: this.cwd.value.trim(),
+      defaultLabel: this.defaultBookmarkLabel(),
+    });
+    this.refreshBookmarkButton();
   }
 
   setRunning(running) {
@@ -373,6 +416,7 @@ export class Card extends BaseCard {
       }
       if (!selectedPath) return;
       this.cwd.value = toTildePath(selectedPath);
+      this.refreshBookmarkButton();
       this.updatePreferredEditorButton();
       appState.saveLayout();
       this.checkGitHub();

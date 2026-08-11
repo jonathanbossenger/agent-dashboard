@@ -232,6 +232,29 @@ test('agent CRUD survives restart', async (t) => {
   await withLocalHost(secondBoot.api.get('/api/agents/persisted')).expect(404);
 });
 
+test('layout bookmarks persist across restart', async (t) => {
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'concilium-test-'));
+  t.after(() => fs.rmSync(homeDir, { recursive: true, force: true }));
+
+  const payload = {
+    cards: [
+      { agentId: 'persisted', cwd: '~/work', lastTaskId: null },
+    ],
+    bookmarks: [
+      { label: 'WordPress', agentId: 'persisted', cwd: '~/work' },
+    ],
+  };
+
+  const firstBoot = bootstrap(homeDir);
+  await withLocalHost(firstBoot.api.post('/api/system/layout').send(payload)).expect(200);
+  const stored = await withLocalHost(firstBoot.api.get('/api/system/layout')).expect(200);
+  assert.deepEqual(stored.body, payload);
+
+  const secondBoot = bootstrap(homeDir);
+  const restored = await withLocalHost(secondBoot.api.get('/api/system/layout')).expect(200);
+  assert.deepEqual(restored.body, payload);
+});
+
 test('discover includes searchedPath context for missing commands', async (t) => {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'concilium-test-'));
   const binDir = fs.mkdtempSync(path.join(os.tmpdir(), 'concilium-bin-'));

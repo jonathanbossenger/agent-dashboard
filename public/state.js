@@ -13,6 +13,7 @@ export const appState = {
   draggingCardEl: null,
   activeCardEl: null,
   layoutReady: false,
+  bookmarks: [],
   homeDir: '',
   publicServer: false,
   canUsePreferredEditor: isLoopbackOrigin(),
@@ -23,6 +24,8 @@ export const appState = {
   addCard: () => null,
   addTerminalCard: () => null,
   addGitHubCard: () => null,
+  isBookmarked: () => false,
+  toggleBookmark: () => false,
   openNewIssueDialog: () => {},
   browseDirectory: async () => null,
 };

@@ -219,6 +219,7 @@ async function loadAgents() {
   agentsById.clear();
   for (const agent of agents) agentsById.set(agent.id, agent);
   for (const card of cards) card.refreshAgentSelect();
+  renderHeaderBookmarks();
 }
 
 function formatHistoryTimestamp(ts) {
@@ -268,22 +269,97 @@ function addCard({ afterEl = null, agentId = '', cwd = '', autoRun = false } = {
   card.initTerminal();
   if (agentId) card.agentSelect.value = agentId;
   if (cwd) { card.cwd.value = cwd; card.updatePreferredEditorButton(); card.checkGitHub(); }
+  card.refreshBookmarkButton();
   saveLayout();
   if (autoRun && agentId) card.run();
   return card;
+}
+
+function bookmarkKey({ agentId = '', cwd = '' } = {}) {
+  return `${agentId}\n${cwd.trim()}`;
+}
+
+function findBookmarkIndex(bookmark) {
+  const key = bookmarkKey(bookmark);
+  return appState.bookmarks.findIndex((entry) => bookmarkKey(entry) === key);
+}
+
+function refreshBookmarkButtons() {
+  for (const card of cards) card.refreshBookmarkButton();
+}
+
+function renderHeaderBookmarks() {
+  const container = $('#header-bookmarks');
+  container.replaceChildren();
+  for (const bookmark of appState.bookmarks) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'header-bookmark';
+    button.textContent = bookmark.label;
+    const agentName = agentsById.get(bookmark.agentId)?.name || bookmark.agentId;
+    button.title = [bookmark.label, agentName, bookmark.cwd || '$HOME'].filter(Boolean).join(' · ');
+    button.addEventListener('click', () => addCard({ agentId: bookmark.agentId, cwd: bookmark.cwd }));
+    container.appendChild(button);
+  }
+}
+
+function normalizeBookmarks(savedBookmarks) {
+  if (!Array.isArray(savedBookmarks)) return [];
+  const seen = new Set();
+  return savedBookmarks
+    .filter((bookmark) => bookmark && typeof bookmark === 'object' && !Array.isArray(bookmark))
+    .map((bookmark) => ({
+      label: typeof bookmark.label === 'string' ? bookmark.label.trim() : '',
+      agentId: typeof bookmark.agentId === 'string' ? bookmark.agentId : '',
+      cwd: typeof bookmark.cwd === 'string' ? bookmark.cwd : '',
+    }))
+    .filter((bookmark) => bookmark.label && bookmark.agentId)
+    .filter((bookmark) => {
+      const key = bookmarkKey(bookmark);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function currentBookmarksState() {
+  return appState.bookmarks.map((bookmark) => ({
+    label: bookmark.label,
+    agentId: bookmark.agentId,
+    cwd: bookmark.cwd,
+  }));
 }
 
 // Register factories into appState so card classes can call them at runtime.
 appState.addCard = addCard;
 appState.addTerminalCard = addTerminalCard;
 appState.addGitHubCard = addGitHubCard;
+appState.isBookmarked = ({ agentId = '', cwd = '' } = {}) => findBookmarkIndex({ agentId, cwd }) !== -1;
+appState.toggleBookmark = ({ agentId = '', cwd = '', defaultLabel = 'Bookmark' } = {}) => {
+  const existingIndex = findBookmarkIndex({ agentId, cwd });
+  if (existingIndex !== -1) {
+    appState.bookmarks.splice(existingIndex, 1);
+    renderHeaderBookmarks();
+    refreshBookmarkButtons();
+    saveLayout();
+    return false;
+  }
+  if (!agentId) return false;
+  const label = window.prompt('Bookmark label', defaultLabel)?.trim();
+  if (!label) return false;
+  appState.bookmarks.push({ label, agentId, cwd });
+  renderHeaderBookmarks();
+  refreshBookmarkButtons();
+  saveLayout();
+  return true;
+};
 appState.saveLayout = () => saveLayout();
 appState.openNewIssueDialog = (repoUrl, cb) => openNewIssueDialog(repoUrl, cb);
 appState.browseDirectory = browseDirectory;
 
 // --- session persistence ---------------------------------------------------
 
-function currentLayoutState() {
+function currentCardLayoutState() {
   const order = [...$('#cards').querySelectorAll('.card')];
   const cardByElement = new Map([...cards].map((card) => [card.el, card]));
   return order
@@ -294,6 +370,13 @@ function currentLayoutState() {
       cwd: card.cwd.value,
       lastTaskId: card.lastTaskId || null,
     }));
+}
+
+function currentLayoutState() {
+  return {
+    cards: currentCardLayoutState(),
+    bookmarks: currentBookmarksState(),
+  };
 }
 
 let saveLayoutTimer = null;
@@ -313,13 +396,16 @@ function saveLayout() {
 }
 
 async function restoreLayout() {
-  let savedStates;
+  let savedLayout;
   try {
     const response = await fetch('/api/system/layout');
-    if (response.ok) savedStates = await response.json();
+    if (response.ok) savedLayout = await response.json();
   } catch (err) {
     console.error('[concilium] failed to load saved layout:', err);
   }
+  const savedStates = Array.isArray(savedLayout) ? savedLayout : Array.isArray(savedLayout?.cards) ? savedLayout.cards : [];
+  appState.bookmarks = normalizeBookmarks(savedLayout?.bookmarks);
+  renderHeaderBookmarks();
   if (!Array.isArray(savedStates) || savedStates.length === 0) {
     addCard();
   } else {
@@ -354,6 +440,7 @@ async function restoreLayout() {
       }
     }));
   }
+  refreshBookmarkButtons();
   appState.layoutReady = true;
 }
 

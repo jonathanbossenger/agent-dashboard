@@ -19,6 +19,7 @@
 <body>
   <header>
     <h1>Concilium</h1>
+    <div id="header-bookmarks" class="header-bookmarks" aria-label="Saved agent bookmarks"></div>
     <div class="header-right">
       <span id="health"></span>
       <button type="button" id="new-card-btn" title="New session">+ New session</button>
@@ -37,6 +38,7 @@
         <span class="card-drag-handle" aria-hidden="true">⋮⋮</span>
         <input type="text" class="card-cwd" placeholder="working directory (default: $HOME)">
         <button type="button" class="card-cwd-browse" aria-label="Browse" title="Browse"><span aria-hidden="true">📂</span></button>
+        <button type="button" class="card-bookmark" aria-label="Add bookmark" aria-pressed="false" title="Add bookmark"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.75 1A1.75 1.75 0 0 0 3 2.75v11.69c0 .445.487.716.862.48L8 12.487l4.138 2.433a.75.75 0 0 0 1.112-.647V2.75A1.75 1.75 0 0 0 11.5 1h-6.75Zm0 1.5h6.75a.25.25 0 0 1 .25.25v10.213l-3.37-1.983a.75.75 0 0 0-.76 0L4.25 12.963V2.75a.25.25 0 0 1 .25-.25Z"/></svg></button>
         <div class="card-actions">
           <button type="button" class="card-expand" title="Expand">&#x2922;</button>
           <button type="button" class="card-close" title="Close session">&times;</button>

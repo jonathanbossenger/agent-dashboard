@@ -149,13 +149,34 @@ body {
 header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 1em;
   padding: 0.5em 1em;
   background: var(--surface-2);
   border-bottom: 1px solid var(--border-strong);
   flex: 0 0 auto;
 }
 header h1 { margin: 0; font-size: 1.1em; font-weight: 600; }
+.header-bookmarks {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.header-bookmarks:empty { display: none; }
+.header-bookmark {
+  flex: 0 0 auto;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border-strong);
+}
+.header-bookmark:hover { background: var(--bg-hover); color: var(--text); }
 #health { font-size: 0.85em; color: var(--health); }
 
 main {
@@ -244,7 +265,7 @@ main:has(.card:only-child):not(.has-expanded) {
   align-items: center;
   gap: 0.2em;
 }
-.card-close, .card-expand {
+.card-close, .card-expand, .card-bookmark {
   background: transparent;
   color: var(--text-dim);
   font-size: 1.3em;
@@ -252,6 +273,17 @@ main:has(.card:only-child):not(.has-expanded) {
   padding: 0 0.35em;
   border: 1px solid transparent;
   border-radius: 4px;
+}
+.card-bookmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.card-bookmark:hover { background: var(--bg-input); color: var(--text); border-color: var(--border-soft); }
+.card-bookmark.active {
+  background: var(--bg-input);
+  color: var(--accent);
+  border-color: var(--border-soft);
 }
 .card-expand:hover { background: var(--bg-input); color: var(--text); border-color: var(--border-soft); }
 .card-close:hover { background: var(--bg-danger-soft); color: var(--stderr); border-color: var(--border-danger); }
@@ -739,7 +771,7 @@ button:disabled { background: var(--button-disabled); cursor: not-allowed; }
 .card-clear:hover { background: var(--bg-hover); color: var(--text); }
 
 /* --- header right cluster --- */
-.header-right { display: flex; align-items: center; gap: 0.6em; }
+.header-right { flex: 0 0 auto; display: flex; align-items: center; gap: 0.6em; }
 #new-card-btn {
   background: var(--new);
   font-size: 0.85em;
