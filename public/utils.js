@@ -93,7 +93,13 @@ export function isTypingContext(node) {
   return !!node.closest('input, textarea, select, [contenteditable], [role="textbox"], .xterm-helper-textarea');
 }
 
-let confirmDialogQueue = Promise.resolve();
+let modalDialogQueue = Promise.resolve();
+
+function enqueueModalDialog(runDialog) {
+  const pending = modalDialogQueue.then(runDialog, runDialog);
+  modalDialogQueue = pending.catch(() => {});
+  return pending;
+}
 
 export function showConfirmDialog({
   title = 'Confirm action',
@@ -132,9 +138,68 @@ export function showConfirmDialog({
     }
   });
 
-  const pending = confirmDialogQueue.then(runDialog, runDialog);
-  confirmDialogQueue = pending.catch(() => {});
-  return pending;
+  return enqueueModalDialog(runDialog);
+}
+
+export function showPromptDialog({
+  title = 'Enter a value',
+  message = '',
+  label = 'Value',
+  defaultValue = '',
+  placeholder = '',
+  confirmLabel = 'Save',
+  cancelLabel = 'Cancel',
+} = {}) {
+  const runDialog = () => new Promise((resolve) => {
+    const dialog = $('#prompt-dialog');
+    const titleEl = $('#prompt-dialog-title');
+    const messageEl = $('#prompt-dialog-message');
+    const labelEl = $('#prompt-dialog-label');
+    const inputEl = $('#prompt-dialog-input');
+    const confirmBtn = $('#prompt-dialog-confirm');
+    const cancelBtn = $('#prompt-dialog-cancel');
+    if (!dialog || !titleEl || !messageEl || !labelEl || !inputEl || !confirmBtn || !cancelBtn || typeof dialog.showModal !== 'function') {
+      resolve(window.prompt(String(title || message || label || 'Enter a value'), defaultValue));
+      return;
+    }
+
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    messageEl.hidden = !message;
+    labelEl.textContent = label;
+    inputEl.value = defaultValue;
+    inputEl.placeholder = placeholder;
+    confirmBtn.textContent = confirmLabel;
+    cancelBtn.textContent = cancelLabel;
+
+    const syncState = () => {
+      confirmBtn.disabled = !inputEl.value.trim();
+    };
+
+    const onClose = () => {
+      dialog.removeEventListener('close', onClose);
+      inputEl.removeEventListener('input', syncState);
+      resolve(dialog.returnValue === 'confirm' ? inputEl.value : null);
+    };
+
+    inputEl.addEventListener('input', syncState);
+    dialog.addEventListener('close', onClose);
+    syncState();
+
+    try {
+      dialog.showModal();
+      requestAnimationFrame(() => {
+        inputEl.focus();
+        inputEl.select();
+      });
+    } catch (_) {
+      dialog.removeEventListener('close', onClose);
+      inputEl.removeEventListener('input', syncState);
+      resolve(window.prompt(String(title || message || label || 'Enter a value'), defaultValue));
+    }
+  });
+
+  return enqueueModalDialog(runDialog);
 }
 
 export function showErrorToast(message, timeoutMs = 4200) {

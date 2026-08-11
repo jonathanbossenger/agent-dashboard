@@ -63,7 +63,7 @@ export class Card extends BaseCard {
       });
     });
     this.cwdBrowse.addEventListener('click', () => this.browseCwd());
-    this.bookmarkBtn.addEventListener('click', () => this.toggleBookmark());
+    this.bookmarkBtn.addEventListener('click', () => { void this.toggleBookmark(); });
     this.closeBtn.addEventListener('click', () => this.close());
     this.expandBtn.addEventListener('click', () => this.toggleExpand());
     this.openTermBtn.addEventListener('click', () => this.openTerminalCard());
@@ -107,9 +107,7 @@ export class Card extends BaseCard {
   }
 
   defaultBookmarkLabel() {
-    const agentLabel = this.agentSelect.selectedOptions[0]?.textContent
-      ?.replace(/\s+· interactive$/, '')
-      .trim() || '';
+    const agentLabel = agentsById.get(this.agentSelect.value)?.name?.trim() || '';
     const directoryPath = this.cwd.value.trim();
     if (agentLabel && directoryPath) return `${agentLabel} · ${directoryPath}`;
     return directoryPath || agentLabel || 'Bookmark';
@@ -127,13 +125,13 @@ export class Card extends BaseCard {
     this.bookmarkBtn.setAttribute('aria-label', title);
   }
 
-  toggleBookmark() {
+  async toggleBookmark() {
     const agentId = this.agentSelect.value;
     if (!agentId) {
       this.setStatus('select an agent', 'err');
       return;
     }
-    appState.toggleBookmark({
+    await appState.toggleBookmark({
       agentId,
       cwd: this.cwd.value.trim(),
       defaultLabel: this.defaultBookmarkLabel(),

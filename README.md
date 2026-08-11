@@ -63,9 +63,10 @@ Your council of agents — Concilium!
   directory, then starts the new session immediately. Paths under `$HOME`
   display as `~/...` shorthand in the cwd field; the server expands them
   at launch. Drag a card by its header to reorder it on the grid; the new
-  order is persisted to the saved layout. Header controls (select, buttons,
-  GitHub button) stay clickable; dragging is disabled while a card is
-  expanded.
+  order is persisted to the saved layout. You can also bookmark an
+  agent/directory pair from the card header and relaunch it from the main
+  header later. Header controls (select, buttons, GitHub button) stay
+  clickable; dragging is disabled while a card is expanded.
 - **Pop-out terminal cards** — the **>_** button on any session card opens
   an independent shell terminal in a new card (using `$SHELL` on macOS/Linux
   and PowerShell on Windows, inserted right after the triggering card).
@@ -87,10 +88,10 @@ Your council of agents — Concilium!
   (merge, close, assign, create issue) require a GitHub token configured in
   Settings.
 - **Session restore** — the card layout (agent, working directory, last task)
-  is persisted server-side in SQLite, so reloading the page or restarting
-  the server brings your sessions back and automatically starts each saved
-  session with its configured agent and working directory. Closing a card
-  permanently removes it (and the tasks it launched) from the saved layout.
+  and saved header bookmarks are persisted server-side in SQLite, so
+  reloading the page or restarting the server brings your sessions back and
+  restores your reusable bookmark launchers. Closing a card permanently
+  removes it (and the tasks it launched) from the saved layout.
 - **First-run onboarding wizard** — on a fresh install the dashboard walks
   you through adding your first agent, optionally registering more agents,
   and (optionally) saving a GitHub token before dropping you into the main
@@ -295,8 +296,8 @@ All endpoints are JSON.
 | `POST`   | `/api/system/new-project` | create repo + clone from `{name, targetPath, private?}` (defaults to public) → `{ok, cwd, repoUrl, private}` |
 | `GET`    | `/api/system/onboarding` | onboarding state `{needsOnboarding, hasAgent, hasToken}` |
 | `POST`   | `/api/system/onboarding/complete` | mark the onboarding wizard finished (requires at least one configured agent) |
-| `GET`    | `/api/system/layout` | the saved card layout (array of `{agentId, cwd, lastTaskId}`) |
-| `POST`   | `/api/system/layout` | replace the saved card layout |
+| `GET`    | `/api/system/layout` | the saved card layout; legacy clients may return an array of `{agentId, cwd, lastTaskId}`, while current clients persist `{cards, bookmarks}` where `bookmarks` is an array of `{label, agentId, cwd}` |
+| `POST`   | `/api/system/layout` | replace the saved card layout using either the legacy array payload or `{cards, bookmarks}` |
 
 ## Project layout
 

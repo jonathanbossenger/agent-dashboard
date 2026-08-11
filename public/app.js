@@ -1,4 +1,4 @@
-import { $, IS_MAC, formatUptime, isTypingContext, isPrimaryModifierPressed, isLoopbackOrigin, RESTORE_RESUME_RETRY_DELAY_MS, LAYOUT_SAVE_DEBOUNCE_MS, SAVED_FLASH_DURATION_MS, HEALTH_POLL_INTERVAL_MS, showConfirmDialog, showErrorToast, currentTermFontSize, MIN_TERM_FONT_SIZE, MAX_TERM_FONT_SIZE } from './utils.js';
+import { $, IS_MAC, formatUptime, isTypingContext, isPrimaryModifierPressed, isLoopbackOrigin, RESTORE_RESUME_RETRY_DELAY_MS, LAYOUT_SAVE_DEBOUNCE_MS, SAVED_FLASH_DURATION_MS, HEALTH_POLL_INTERVAL_MS, showConfirmDialog, showPromptDialog, showErrorToast, currentTermFontSize, MIN_TERM_FONT_SIZE, MAX_TERM_FONT_SIZE } from './utils.js';
 import { appState, agentsById, cards, termCards } from './state.js';
 import { Card } from './card.js';
 import { GitHubCard } from './github-card.js';
@@ -288,18 +288,73 @@ function refreshBookmarkButtons() {
   for (const card of cards) card.refreshBookmarkButton();
 }
 
+function removeBookmark(bookmark) {
+  const existingIndex = findBookmarkIndex(bookmark);
+  if (existingIndex === -1) return false;
+  appState.bookmarks.splice(existingIndex, 1);
+  renderHeaderBookmarks();
+  refreshBookmarkButtons();
+  saveLayout();
+  return true;
+}
+
+function focusCard(card) {
+  if (!card || !card.el?.isConnected) return false;
+  appState.activeCardEl = card.el;
+  card.el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  if (typeof card.term?.focus === 'function') card.term.focus();
+  return true;
+}
+
+function findOpenBookmarkCard(bookmark) {
+  const key = bookmarkKey(bookmark);
+  for (const card of cards) {
+    if (bookmarkKey({ agentId: card.agentSelect.value, cwd: card.cwd.value }) === key) return card;
+  }
+  return null;
+}
+
+function openBookmark(bookmark) {
+  if (!agentsById.has(bookmark.agentId)) return false;
+  const existingCard = findOpenBookmarkCard(bookmark);
+  if (existingCard) return focusCard(existingCard);
+  focusCard(addCard({ agentId: bookmark.agentId, cwd: bookmark.cwd }));
+  return true;
+}
+
 function renderHeaderBookmarks() {
   const container = $('#header-bookmarks');
   container.replaceChildren();
   for (const bookmark of appState.bookmarks) {
+    const agent = agentsById.get(bookmark.agentId);
+    const missingAgent = !agent;
+    const item = document.createElement('div');
+    item.className = 'header-bookmark-item';
+
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'header-bookmark';
+    button.className = `header-bookmark${missingAgent ? ' missing' : ''}`;
     button.textContent = bookmark.label;
-    const agentName = agentsById.get(bookmark.agentId)?.name || bookmark.agentId;
-    button.title = [agentName, bookmark.cwd || '$HOME'].join(' · ');
-    button.addEventListener('click', () => addCard({ agentId: bookmark.agentId, cwd: bookmark.cwd }));
-    container.appendChild(button);
+    button.disabled = missingAgent;
+    const agentName = agent?.name || bookmark.agentId;
+    button.title = missingAgent
+      ? [agentName, bookmark.cwd || '$HOME', 'agent no longer exists'].join(' · ')
+      : [agentName, bookmark.cwd || '$HOME'].join(' · ');
+    button.setAttribute('aria-label', missingAgent
+      ? `${bookmark.label} (agent no longer exists)`
+      : bookmark.label);
+    if (!missingAgent) button.addEventListener('click', () => openBookmark(bookmark));
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'header-bookmark-remove';
+    removeBtn.innerHTML = CLOSE_ICON_SVG;
+    removeBtn.title = 'Remove bookmark';
+    removeBtn.setAttribute('aria-label', `Remove bookmark ${bookmark.label}`);
+    removeBtn.addEventListener('click', () => removeBookmark(bookmark));
+
+    item.append(button, removeBtn);
+    container.appendChild(item);
   }
 }
 
@@ -311,7 +366,7 @@ function normalizeBookmarks(savedBookmarks) {
     .map((bookmark) => ({
       label: typeof bookmark.label === 'string' ? bookmark.label.trim() : '',
       agentId: typeof bookmark.agentId === 'string' ? bookmark.agentId : '',
-      cwd: typeof bookmark.cwd === 'string' ? bookmark.cwd : '',
+      cwd: typeof bookmark.cwd === 'string' ? bookmark.cwd.trim() : '',
     }))
     .filter((bookmark) => bookmark.label && bookmark.agentId)
     .filter((bookmark) => {
@@ -335,19 +390,19 @@ appState.addCard = addCard;
 appState.addTerminalCard = addTerminalCard;
 appState.addGitHubCard = addGitHubCard;
 appState.isBookmarked = ({ agentId = '', cwd = '' } = {}) => findBookmarkIndex({ agentId, cwd }) !== -1;
-appState.toggleBookmark = ({ agentId = '', cwd = '', defaultLabel = 'Bookmark' } = {}) => {
-  const existingIndex = findBookmarkIndex({ agentId, cwd });
-  if (existingIndex !== -1) {
-    appState.bookmarks.splice(existingIndex, 1);
-    renderHeaderBookmarks();
-    refreshBookmarkButtons();
-    saveLayout();
-    return false;
-  }
+appState.toggleBookmark = async ({ agentId = '', cwd = '', defaultLabel = 'Bookmark' } = {}) => {
+  if (removeBookmark({ agentId, cwd })) return false;
   if (!agentId) return false;
-  const label = window.prompt('Bookmark label', defaultLabel)?.trim();
+  const label = (await showPromptDialog({
+    title: 'Save bookmark',
+    message: 'Choose a label for this saved agent and directory.',
+    label: 'Bookmark label',
+    defaultValue: defaultLabel,
+    placeholder: 'Project review',
+    confirmLabel: 'Save bookmark',
+  }))?.trim();
   if (!label) return false;
-  appState.bookmarks.push({ label, agentId, cwd });
+  appState.bookmarks.push({ label, agentId, cwd: cwd.trim() });
   renderHeaderBookmarks();
   refreshBookmarkButtons();
   saveLayout();
