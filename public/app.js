@@ -297,7 +297,7 @@ function renderHeaderBookmarks() {
     button.className = 'header-bookmark';
     button.textContent = bookmark.label;
     const agentName = agentsById.get(bookmark.agentId)?.name || bookmark.agentId;
-    button.title = [bookmark.label, agentName, bookmark.cwd || '$HOME'].filter(Boolean).join(' · ');
+    button.title = [agentName, bookmark.cwd || '$HOME'].join(' · ');
     button.addEventListener('click', () => addCard({ agentId: bookmark.agentId, cwd: bookmark.cwd }));
     container.appendChild(button);
   }
