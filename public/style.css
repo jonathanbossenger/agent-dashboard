@@ -149,13 +149,69 @@ body {
 header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 1em;
   padding: 0.5em 1em;
   background: var(--surface-2);
   border-bottom: 1px solid var(--border-strong);
   flex: 0 0 auto;
 }
 header h1 { margin: 0; font-size: 1.1em; font-weight: 600; }
+.header-bookmarks {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.header-bookmarks:empty { display: none; }
+.header-bookmark-item {
+  flex: 0 0 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+}
+.header-bookmark {
+  flex: 0 1 auto;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border-strong);
+}
+.header-bookmark:hover { background: var(--bg-hover); color: var(--text); }
+.header-bookmark:disabled {
+  background: transparent;
+  color: var(--text-muted);
+  border-color: var(--border-strong);
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+.header-bookmark.missing {
+  border-style: dashed;
+}
+.header-bookmark-remove {
+  flex: 0 0 auto;
+  width: 1.9em;
+  height: 1.9em;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.header-bookmark-remove:hover {
+  background: var(--bg-danger-soft);
+  color: var(--stderr);
+  border-color: var(--border-danger);
+}
 #health { font-size: 0.85em; color: var(--health); }
 
 main {
@@ -244,7 +300,7 @@ main:has(.card:only-child):not(.has-expanded) {
   align-items: center;
   gap: 0.2em;
 }
-.card-close, .card-expand {
+.card-close, .card-expand, .card-bookmark {
   background: transparent;
   color: var(--text-dim);
   font-size: 1.3em;
@@ -252,6 +308,22 @@ main:has(.card:only-child):not(.has-expanded) {
   padding: 0 0.35em;
   border: 1px solid transparent;
   border-radius: 4px;
+}
+.card-bookmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.card-bookmark:hover { background: var(--bg-input); color: var(--text); border-color: var(--border-soft); }
+.card-bookmark.active,
+.card-bookmark.active:hover {
+  background: transparent;
+  color: var(--accent);
+  border-color: transparent;
+}
+.card-bookmark:disabled {
+  background: transparent;
+  opacity: 0.5;
 }
 .card-expand:hover { background: var(--bg-input); color: var(--text); border-color: var(--border-soft); }
 .card-close:hover { background: var(--bg-danger-soft); color: var(--stderr); border-color: var(--border-danger); }
@@ -739,7 +811,7 @@ button:disabled { background: var(--button-disabled); cursor: not-allowed; }
 .card-clear:hover { background: var(--bg-hover); color: var(--text); }
 
 /* --- header right cluster --- */
-.header-right { display: flex; align-items: center; gap: 0.6em; }
+.header-right { flex: 0 0 auto; margin-left: auto; display: flex; align-items: center; gap: 0.6em; }
 #new-card-btn {
   background: var(--new);
   font-size: 0.85em;
@@ -770,7 +842,8 @@ dialog#new-project-dialog,
 dialog#new-issue-dialog,
 dialog#shortcuts-dialog,
 dialog#history-dialog,
-dialog#confirm-dialog {
+dialog#confirm-dialog,
+dialog#prompt-dialog {
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border-strong);
@@ -789,7 +862,8 @@ dialog#new-project-dialog::backdrop,
 dialog#new-issue-dialog::backdrop,
 dialog#shortcuts-dialog::backdrop,
 dialog#history-dialog::backdrop,
-dialog#confirm-dialog::backdrop { background: var(--backdrop); }
+dialog#confirm-dialog::backdrop,
+dialog#prompt-dialog::backdrop { background: var(--backdrop); }
 .dialog-body { display: flex; flex-direction: column; gap: 1.2em; padding: 1em 1.2em 1.4em; }
 .dialog-head { display: flex; justify-content: space-between; align-items: center; }
 .dialog-head h2 { margin: 0; font-size: 1.05em; color: var(--text); text-transform: none; letter-spacing: 0; }
@@ -892,6 +966,17 @@ dialog section h3 {
   margin: 0;
   color: var(--text);
   white-space: pre-wrap;
+}
+#prompt-dialog-message {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.prompt-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+  font-size: 0.8em;
+  color: var(--text-dim);
 }
 #confirm-dialog-confirm.danger {
   background: var(--kill);
